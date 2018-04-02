@@ -25,3 +25,10 @@ body {
 .cardText .emphasize {
     font-weight: bold;
 }
+
+.infoBox {
+    display: block;
+    background: bisque;
+    margin: 10px 0;
+    padding: 5px;
+}

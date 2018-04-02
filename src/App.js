@@ -1,6 +1,8 @@
 import React, {Component} from 'react';
 import axios from 'axios';
 
+import {USER_EXISTS, OTHER_ERROR, NO_CONNECTION} from './util/constants/errorTypes';
+
 const Card = (props) => {
     return (
         <div className="card">
@@ -46,9 +48,25 @@ class Form extends Component {
     }
 }
 
+const ErrorMessageInfo = (props) => {
+    return (
+        <div>
+            {props.error.code != null &&
+            <div className="infoBox">
+                Error: {props.error.text}
+            </div>
+            }
+        </div>
+    )
+};
+
 class App extends Component {
     state = {
-        cards: []
+        cards: [],
+        error: {
+            code: null,
+            text: null
+        }
     };
 
     componentDidMount() {
@@ -56,11 +74,55 @@ class App extends Component {
         this.fetchData('juanru');
     }
 
+    clearErrorsState = () => {
+        this.setState({
+            error: {
+                code: null,
+                text: null
+            }
+        })
+    };
+
+    // Adds element to the state only if it was not included yet
+    addErrorMessage = (errorCode, errorText) => {
+        this.setState(prevState => ({
+            error: (prevState.error.code === errorCode) ?
+                prevState.error :
+                {code: errorCode, text: errorText}
+        }))
+    };
+
+    handleServerErrorResponse = (error) => {
+        this.addErrorMessage(error.status, error.statusText)
+    };
+
     fetchData = (userName) => {
+        // Clear previous state
+        this.clearErrorsState();
+
         axios.get(`https://api.github.com/users/${userName}`)
             .then(resp => {
-                this.addCard(resp.data);
+                this.userCardExists(userName) ?
+                    this.addErrorMessage(USER_EXISTS, "User Card is already in the list") :
+                    this.addCard(resp.data);
             })
+            .catch(error => {
+                // Error
+                if (error.response) {
+                    // The request was made and the server responded with a status code
+                    // that falls out of the range of 2xx
+                    this.handleServerErrorResponse(error.response);
+                } else if (error.request) {
+                    // The request was made but no response was received
+                    // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+                    // http.ClientRequest in node.js
+                    this.addErrorMessage(NO_CONNECTION, "There is no internet connection. Try again later!");
+                } else {
+                    // Something happened in setting up the request that triggered an Error
+                    this.addErrorMessage(OTHER_ERROR, error.message);
+                }
+                //console.log(error.config);
+            });
     };
 
     addCard = (card) => {
@@ -69,9 +131,16 @@ class App extends Component {
         }))
     };
 
+    userCardExists = (userName) => {
+        return this.state.cards.some(c =>
+            c.login === userName
+        )
+    };
+
     render() {
         return (
             <div id="container">
+                <ErrorMessageInfo error={this.state.error}/>
                 <Form fetchData={this.fetchData}/>
                 <CardList cards={this.state.cards}/>
             </div>
